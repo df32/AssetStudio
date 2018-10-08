@@ -1567,7 +1567,13 @@ namespace AssetStudio
             Studio.ProgressBarPerformStep = ProgressBarPerformStep;
             Studio.StatusStripUpdate = StatusStripUpdate;
             Studio.ProgressBarMaximumAdd = ProgressBarMaximumAdd;
-        }
+
+			//File Drop
+			this.AllowDrop = true;
+			this.DragDrop += new System.Windows.Forms.DragEventHandler(this.UnityStudioForm_DragDrop);
+			this.DragEnter += new System.Windows.Forms.DragEventHandler(this.UnityStudioForm_DragEnter);
+		}
+
 
         private void initOpenTK()
         {
