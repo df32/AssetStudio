@@ -250,6 +250,7 @@
       <DependentUpon>AssetStudioForm.cs</DependentUpon>
     </Compile>
     <Compile Include="TreeViewExtensions.cs" />
+    <Compile Include="Utils\WinMsgUtil.cs" />
     <EmbeddedResource Include="ExportOptions.resx">
       <DependentUpon>ExportOptions.cs</DependentUpon>
     </EmbeddedResource>

@@ -15,6 +15,7 @@ using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using static AssetStudio.Studio;
 using static AssetStudio.Importer;
+using AssetStudio.Utils;
 
 namespace AssetStudio
 {
@@ -74,67 +75,95 @@ namespace AssetStudio
 
         private void loadFile_Click(object sender, EventArgs e)
         {
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            {
-                resetForm();
-                ThreadPool.QueueUserWorkItem(state =>
-                {
-                    mainPath = Path.GetDirectoryName(openFileDialog1.FileNames[0]);
-                    MergeSplitAssets(mainPath);
-                    var readFile = ProcessingSplitFiles(openFileDialog1.FileNames.ToList());
-                    foreach (var i in readFile)
-                    {
-                        importFiles.Add(i);
-                        importFilesHash.Add(Path.GetFileName(i).ToUpper());
-                    }
-                    SetProgressBarValue(0);
-                    SetProgressBarMaximum(importFiles.Count);
-                    //use a for loop because list size can change
-                    for (int f = 0; f < importFiles.Count; f++)
-                    {
-                        LoadFile(importFiles[f]);
-                        ProgressBarPerformStep();
-                    }
-                    importFilesHash.Clear();
-                    assetsfileListHash.Clear();
-                    BuildAssetStrucutres();
-                });
-            }
+			if (openFileDialog1.ShowDialog() == DialogResult.OK)
+			{
+				LoadFiles(openFileDialog1.FileNames);
+			}
         }
 
-        private void loadFolder_Click(object sender, EventArgs e)
+		/// <summary>
+		/// Load unity files
+		/// </summary>
+		/// <param name="fileList">files to load</param>
+		public void LoadFiles(string[] fileList)
+		{
+			if (!File.Exists(fileList[0])) return;
+			
+			resetForm();
+
+			mainPath = Path.GetDirectoryName(fileList[0]);
+			ThreadPool.QueueUserWorkItem(state =>
+			{
+				mainPath = Path.GetDirectoryName(fileList[0]);
+				MergeSplitAssets(mainPath);
+				var readFile = ProcessingSplitFiles(fileList.ToList());
+				foreach (var i in readFile)
+				{
+					importFiles.Add(i);
+					importFilesHash.Add(Path.GetFileName(i).ToUpper());
+				}
+				SetProgressBarValue(0);
+				SetProgressBarMaximum(importFiles.Count);
+				//use a for loop because list size can change
+				for (int f = 0; f < importFiles.Count; f++)
+				{
+					StatusStripUpdate("Loading " + Path.GetFileName(importFiles[f]));
+					LoadFile(importFiles[f]);
+					ProgressBarPerformStep();
+				}
+				importFilesHash.Clear();
+				assetsfileListHash.Clear();
+				BuildAssetStrucutres();
+			});
+		}
+
+		private void loadFolder_Click(object sender, EventArgs e)
         {
             var openFolderDialog1 = new OpenFolderDialog();
             if (openFolderDialog1.ShowDialog(this) == DialogResult.OK)
             {
-                resetForm();
-                ThreadPool.QueueUserWorkItem(state =>
-                {
-                    mainPath = openFolderDialog1.Folder;
-                    MergeSplitAssets(mainPath);
-                    var files = Directory.GetFiles(mainPath, "*.*", SearchOption.AllDirectories).ToList();
-                    var readFile = ProcessingSplitFiles(files);
-                    foreach (var i in readFile)
-                    {
-                        importFiles.Add(i);
-                        importFilesHash.Add(Path.GetFileName(i));
-                    }
-                    SetProgressBarValue(0);
-                    SetProgressBarMaximum(importFiles.Count);
-                    //use a for loop because list size can change
-                    for (int f = 0; f < importFiles.Count; f++)
-                    {
-                        LoadFile(importFiles[f]);
-                        ProgressBarPerformStep();
-                    }
-                    importFilesHash.Clear();
-                    assetsfileListHash.Clear();
-                    BuildAssetStrucutres();
-                });
+				LoadFolder(openFolderDialog1.Folder);
             }
         }
 
-        private void extractFileToolStripMenuItem_Click(object sender, EventArgs e)
+		/// <summary>
+		/// Load all files from selected folder.
+		/// </summary>
+		/// <param name="folder">folder to load</param>
+		public void LoadFolder(string folder)
+		{
+			if (Directory.Exists(folder))
+			{
+				resetForm();
+				ThreadPool.QueueUserWorkItem(state =>
+				{
+					mainPath = folder;
+					MergeSplitAssets(mainPath);
+					var files = Directory.GetFiles(mainPath, "*.*", SearchOption.AllDirectories).ToList();
+					var readFile = ProcessingSplitFiles(files);
+					foreach (var i in readFile)
+					{
+						importFiles.Add(i);
+						importFilesHash.Add(Path.GetFileName(i));
+					}
+					SetProgressBarValue(0);
+					SetProgressBarMaximum(importFiles.Count);
+					//use a for loop because list size can change
+					for (int f = 0; f < importFiles.Count; f++)
+					{
+						StatusStripUpdate("Loading " + Path.GetFileName(importFiles[f]));
+						LoadFile(importFiles[f]);
+						ProgressBarPerformStep();
+					}
+					importFilesHash.Clear();
+					assetsfileListHash.Clear();
+					BuildAssetStrucutres();
+				});
+			}
+			else { StatusStripUpdate("Selected path deos not exist."); }
+		}
+
+		private void extractFileToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var openBundleDialog = new OpenFileDialog
             {
@@ -2005,5 +2034,65 @@ namespace AssetStudio
             assetListView.VirtualListSize = visibleAssets.Count;
             assetListView.EndUpdate();
         }
-    }
+
+		private void UnityStudioForm_DragEnter(object sender, DragEventArgs e)
+		{
+			e.Effect = DragDropEffects.None;
+			if (e.Data.GetDataPresent(DataFormats.FileDrop))
+			{
+				 //(e.KeyState & 8) == 8    //CTRL
+				e.Effect = DragDropEffects.Move;
+			}
+
+		}
+
+		private void UnityStudioForm_DragDrop(object sender, DragEventArgs e)
+		{
+			if (e.Data.GetDataPresent(DataFormats.FileDrop))
+			{
+				var filelist = (string[])e.Data.GetData(DataFormats.FileDrop);
+
+				if (Directory.Exists(filelist[0]))
+				{
+					LoadFolder(filelist[0]);
+				}
+				else
+				{
+					filelist = filelist.Where(x => !String.IsNullOrEmpty(x) && File.Exists(x))
+									.ToArray();
+					LoadFiles(filelist);
+				}
+			}
+		}
+
+		protected override void DefWndProc(ref Message m)
+		{
+			switch (m.Msg)
+			{
+				case WinMsgUtil.WM_COPYDATA:
+					var data = WinMsgUtil.ParseMessage(ref m);
+					if (data != null && data.Length > 0)
+						this.BeginInvoke(new MethodInvoker(() =>
+						{
+							this.Activate();
+							if (String.IsNullOrWhiteSpace(data[0])) return;
+							else if (File.Exists(data[0]))
+							{
+								var list = data.Where(x => File.Exists(x))
+												.ToArray();
+								if (list.Length > 0)
+									this.LoadFiles(data);
+							}
+							else if (Directory.Exists(data[0]))
+							{
+								this.LoadFolder(data[0]);
+							}
+						}));
+					return;
+				default:
+					break;
+			}
+			base.DefWndProc(ref m);
+		}
+	}
 }
