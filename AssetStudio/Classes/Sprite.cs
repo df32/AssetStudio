@@ -3,24 +3,63 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using SharpDX;
+using RectangleF = System.Drawing.RectangleF;
 
 namespace AssetStudio
 {
+    public enum SpritePackingRotation
+    {
+        kSPRNone = 0,
+        kSPRFlipHorizontal = 1,
+        kSPRFlipVertical = 2,
+        kSPRRotate180 = 3,
+        kSPRRotate90 = 4
+    };
+
+    public enum SpritePackingMode
+    {
+        kSPMTight = 0,
+        kSPMRectangle
+    };
+
+    public class SpriteSettings
+    {
+        public uint settingsRaw;
+
+        public uint packed;
+        public SpritePackingMode packingMode;
+        public SpritePackingRotation packingRotation;
+
+        public SpriteSettings(ObjectReader reader)
+        {
+            settingsRaw = reader.ReadUInt32();
+
+            packed = settingsRaw & 1; //1
+            packingMode = (SpritePackingMode)((settingsRaw >> 1) & 1); //1
+            packingRotation = (SpritePackingRotation)((settingsRaw >> 2) & 0xf); //4
+
+            //meshType = (settingsRaw >> 6) & 1; //1
+            //reserved
+        }
+    }
+
     public sealed class Sprite : NamedObject
     {
         public RectangleF m_Rect;
         public float m_PixelsToUnits;
-        public PointF m_Pivot;
-        public Guid first;
+        public Vector2 m_Pivot;
+        public Tuple<Guid, long> m_RenderDataKey;
         public PPtr texture;
         public PPtr m_SpriteAtlas;
         public RectangleF textureRect;
-        public PointF[][] m_PhysicsShape;
+        public SpriteSettings settingsRaw;
+        public PointF[][] m_PhysicsShape; //Vector2[][]
 
-        public Sprite(AssetPreloadData preloadData) : base(preloadData)
+        public Sprite(ObjectReader reader) : base(reader)
         {
             //Rectf m_Rect
-            m_Rect = new RectangleF(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            m_Rect = reader.ReadRectangleF();
             //Vector2f m_Offset
             reader.Position += 8;
             if (version[0] > 4 || (version[0] == 4 && version[1] >= 5)) //4.5 and up
@@ -35,7 +74,7 @@ namespace AssetStudio
                 || (version[0] == 5 && version[1] == 4 && version[2] >= 2)) //5.4.2 and up
             {
                 //Vector2f m_Pivot
-                m_Pivot = new PointF(reader.ReadSingle(), reader.ReadSingle());
+                m_Pivot = reader.ReadVector2();
             }
 
             var m_Extrude = reader.ReadUInt32();
@@ -48,8 +87,9 @@ namespace AssetStudio
             if (version[0] >= 2017) //2017 and up
             {
                 //pair m_RenderDataKey
-                first = new Guid(reader.ReadBytes(16));
+                var first = new Guid(reader.ReadBytes(16));
                 var second = reader.ReadInt64();
+                m_RenderDataKey = new Tuple<Guid, long>(first, second);
                 //vector m_AtlasTags
                 var size = reader.ReadInt32();
                 for (int i = 0; i < size; i++)
@@ -58,16 +98,16 @@ namespace AssetStudio
                 }
 
                 //PPtr<SpriteAtlas> m_SpriteAtlas
-                m_SpriteAtlas = sourceFile.ReadPPtr();
+                m_SpriteAtlas = reader.ReadPPtr();
             }
 
             //SpriteRenderData m_RD
             //  PPtr<Texture2D> texture
-            texture = sourceFile.ReadPPtr();
+            texture = reader.ReadPPtr();
             //  PPtr<Texture2D> alphaTexture
-            if (version[0] >= 5) //5.0 and up
+            if (version[0] > 5 || (version[0] == 5 && version[1] >= 2)) //5.2 and up
             {
-                var alphaTexture = sourceFile.ReadPPtr();
+                var alphaTexture = reader.ReadPPtr();
             }
 
             if (version[0] > 5 || (version[0] == 5 && version[1] >= 6)) //5.6 and up
@@ -136,7 +176,7 @@ namespace AssetStudio
             }
 
             //  Rectf textureRect
-            textureRect = new RectangleF(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            textureRect = reader.ReadRectangleF();
             //  Vector2f textureRectOffset
             reader.Position += 8;
             //  Vector2f atlasRectOffset - 5.6 and up
@@ -145,7 +185,7 @@ namespace AssetStudio
                 reader.Position += 8;
             }
             //  unsigned int settingsRaw
-            reader.Position += 4;
+            settingsRaw = new SpriteSettings(reader);
             //  Vector4f uvTransform - 4.5 and up
             if (version[0] > 4 || (version[0] == 4 && version[1] >= 5)) //4.5 and up
             {

@@ -86,90 +86,6 @@ namespace AssetStudio.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool exportNormals {
-            get {
-                return ((bool)(this["exportNormals"]));
-            }
-            set {
-                this["exportNormals"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool exportTangents {
-            get {
-                return ((bool)(this["exportTangents"]));
-            }
-            set {
-                this["exportTangents"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool exportUVs {
-            get {
-                return ((bool)(this["exportUVs"]));
-            }
-            set {
-                this["exportUVs"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool exportColors {
-            get {
-                return ((bool)(this["exportColors"]));
-            }
-            set {
-                this["exportColors"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("2.54")]
-        public decimal scaleFactor {
-            get {
-                return ((decimal)(this["scaleFactor"]));
-            }
-            set {
-                this["scaleFactor"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool exportDeformers {
-            get {
-                return ((bool)(this["exportDeformers"]));
-            }
-            set {
-                this["exportDeformers"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool convertDummies {
-            get {
-                return ((bool)(this["convertDummies"]));
-            }
-            set {
-                this["convertDummies"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool convertTexture {
             get {
                 return ((bool)(this["convertTexture"]));
@@ -218,12 +134,12 @@ namespace AssetStudio.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
-        public bool EulerFilter {
+        public bool eulerFilter {
             get {
-                return ((bool)(this["EulerFilter"]));
+                return ((bool)(this["eulerFilter"]));
             }
             set {
-                this["EulerFilter"] = value;
+                this["eulerFilter"] = value;
             }
         }
         
@@ -308,6 +224,30 @@ namespace AssetStudio.Properties {
             }
             set {
                 this["fbxVersion"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int fbxFormat {
+            get {
+                return ((int)(this["fbxFormat"]));
+            }
+            set {
+                this["fbxFormat"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public decimal scaleFactor {
+            get {
+                return ((decimal)(this["scaleFactor"]));
+            }
+            set {
+                this["scaleFactor"] = value;
             }
         }
     }

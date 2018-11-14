@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using SharpDX;
-using static AssetStudio.Studio;
 
 namespace AssetStudio
 {
@@ -20,12 +19,12 @@ namespace AssetStudio
 
         private Avatar avatar;
         private Dictionary<uint, string> morphChannelInfo = new Dictionary<uint, string>();
-        private HashSet<AssetPreloadData> animationClipHashSet = new HashSet<AssetPreloadData>();
+        private HashSet<ObjectReader> animationClipHashSet = new HashSet<ObjectReader>();
         private Dictionary<uint, string> bonePathHash = new Dictionary<uint, string>();
 
         public ModelConverter(GameObject m_GameObject)
         {
-            if (m_GameObject.m_Animator != null && m_GameObject.m_Animator.TryGetPD(out var m_Animator))
+            if (m_GameObject.m_Animator != null && m_GameObject.m_Animator.TryGet(out var m_Animator))
             {
                 var animator = new Animator(m_Animator);
                 InitWithAnimator(animator);
@@ -36,9 +35,9 @@ namespace AssetStudio
             ConvertAnimations();
         }
 
-        public ModelConverter(GameObject m_GameObject, List<AssetPreloadData> animationList)
+        public ModelConverter(GameObject m_GameObject, List<AssetItem> animationList)
         {
-            if (m_GameObject.m_Animator != null && m_GameObject.m_Animator.TryGetPD(out var m_Animator))
+            if (m_GameObject.m_Animator != null && m_GameObject.m_Animator.TryGet(out var m_Animator))
             {
                 var animator = new Animator(m_Animator);
                 InitWithAnimator(animator);
@@ -47,7 +46,7 @@ namespace AssetStudio
                 InitWithGameObject(m_GameObject);
             foreach (var assetPreloadData in animationList)
             {
-                animationClipHashSet.Add(assetPreloadData);
+                animationClipHashSet.Add(assetPreloadData.reader);
             }
             ConvertAnimations();
         }
@@ -59,19 +58,19 @@ namespace AssetStudio
             ConvertAnimations();
         }
 
-        public ModelConverter(Animator m_Animator, List<AssetPreloadData> animationList)
+        public ModelConverter(Animator m_Animator, List<AssetItem> animationList)
         {
             InitWithAnimator(m_Animator);
             foreach (var assetPreloadData in animationList)
             {
-                animationClipHashSet.Add(assetPreloadData);
+                animationClipHashSet.Add(assetPreloadData.reader);
             }
             ConvertAnimations();
         }
 
         private void InitWithAnimator(Animator m_Animator)
         {
-            if (m_Animator.m_Avatar.TryGetPD(out var m_Avatar))
+            if (m_Animator.m_Avatar.TryGet(out var m_Avatar))
                 avatar = new Avatar(m_Avatar);
 
             m_Animator.m_GameObject.TryGetGameObject(out var m_GameObject);
@@ -91,10 +90,11 @@ namespace AssetStudio
             else
             {
                 var frameList = new List<ImportedFrame>();
-                while (rootTransform.m_Father.TryGetTransform(out var m_Father))
+                var tempTransform = rootTransform;
+                while (tempTransform.m_Father.TryGetTransform(out var m_Father))
                 {
                     frameList.Add(ConvertFrame(m_Father));
-                    rootTransform = m_Father;
+                    tempTransform = m_Father;
                 }
                 if (frameList.Count > 0)
                 {
@@ -123,28 +123,28 @@ namespace AssetStudio
             m_Transform.m_GameObject.TryGetGameObject(out var m_GameObject);
             foreach (var m_Component in m_GameObject.m_Components)
             {
-                if (m_Component.TryGetPD(out var assetPreloadData))
+                if (m_Component.TryGet(out var objectReader))
                 {
-                    switch (assetPreloadData.Type)
+                    switch (objectReader.type)
                     {
-                        case ClassIDReference.MeshRenderer:
+                        case ClassIDType.MeshRenderer:
                             {
-                                var m_Renderer = new MeshRenderer(assetPreloadData);
+                                var m_Renderer = new MeshRenderer(objectReader);
                                 ConvertMeshRenderer(m_Renderer);
                                 break;
                             }
-                        case ClassIDReference.SkinnedMeshRenderer:
+                        case ClassIDType.SkinnedMeshRenderer:
                             {
-                                var m_SkinnedMeshRenderer = new SkinnedMeshRenderer(assetPreloadData);
+                                var m_SkinnedMeshRenderer = new SkinnedMeshRenderer(objectReader);
                                 ConvertMeshRenderer(m_SkinnedMeshRenderer);
                                 break;
                             }
-                        case ClassIDReference.Animation:
+                        case ClassIDType.Animation:
                             {
-                                var m_Animation = new Animation(assetPreloadData);
+                                var m_Animation = new Animation(objectReader);
                                 foreach (var animation in m_Animation.m_Animations)
                                 {
-                                    if (animation.TryGetPD(out var animationClip))
+                                    if (animation.TryGet(out var animationClip))
                                     {
                                         animationClipHashSet.Add(animationClip);
                                     }
@@ -163,19 +163,19 @@ namespace AssetStudio
 
         private void CollectAnimationClip(Animator m_Animator)
         {
-            if (m_Animator.m_Controller.TryGetPD(out var assetPreloadData))
+            if (m_Animator.m_Controller.TryGet(out var objectReader))
             {
-                if (assetPreloadData.Type == ClassIDReference.AnimatorOverrideController)
+                if (objectReader.type == ClassIDType.AnimatorOverrideController)
                 {
-                    var m_AnimatorOverrideController = new AnimatorOverrideController(assetPreloadData);
-                    if (m_AnimatorOverrideController.m_Controller.TryGetPD(out assetPreloadData))
+                    var m_AnimatorOverrideController = new AnimatorOverrideController(objectReader);
+                    if (m_AnimatorOverrideController.m_Controller.TryGet(out objectReader))
                     {
-                        var m_AnimatorController = new AnimatorController(assetPreloadData);
+                        var m_AnimatorController = new AnimatorController(objectReader);
                         foreach (var m_AnimationClip in m_AnimatorController.m_AnimationClips)
                         {
-                            if (m_AnimationClip.TryGetPD(out assetPreloadData))
+                            if (m_AnimationClip.TryGet(out objectReader))
                             {
-                                animationClipHashSet.Add(assetPreloadData);
+                                animationClipHashSet.Add(objectReader);
                             }
                         }
                     }
@@ -187,14 +187,14 @@ namespace AssetStudio
                         }
                     }*/
                 }
-                else if (assetPreloadData.Type == ClassIDReference.AnimatorController)
+                else if (objectReader.type == ClassIDType.AnimatorController)
                 {
-                    var m_AnimatorController = new AnimatorController(assetPreloadData);
+                    var m_AnimatorController = new AnimatorController(objectReader);
                     foreach (var m_AnimationClip in m_AnimatorController.m_AnimationClips)
                     {
-                        if (m_AnimationClip.TryGetPD(out assetPreloadData))
+                        if (m_AnimationClip.TryGet(out objectReader))
                         {
-                            animationClipHashSet.Add(assetPreloadData);
+                            animationClipHashSet.Add(objectReader);
                         }
                     }
                 }
@@ -255,7 +255,7 @@ namespace AssetStudio
             var iMesh = new ImportedMesh();
             meshR.m_GameObject.TryGetGameObject(out var m_GameObject2);
             m_GameObject2.m_Transform.TryGetTransform(out var meshTransform);
-            iMesh.Name = GetTransformPath(meshTransform);
+            iMesh.Name = GetMeshPath(meshTransform);
             iMesh.SubmeshList = new List<ImportedSubmesh>();
             var subHashSet = new HashSet<int>();
             var combine = false;
@@ -293,7 +293,7 @@ namespace AssetStudio
                 Material mat = null;
                 if (i - firstSubMesh < meshR.m_Materials.Length)
                 {
-                    if (meshR.m_Materials[i - firstSubMesh].TryGetPD(out var MaterialPD))
+                    if (meshR.m_Materials[i - firstSubMesh].TryGet(out var MaterialPD))
                     {
                         mat = new Material(MaterialPD);
                     }
@@ -352,7 +352,7 @@ namespace AssetStudio
                         iVertex.Tangent = new Vector4(-mesh.m_Tangents[j * 4], mesh.m_Tangents[j * 4 + 1], mesh.m_Tangents[j * 4 + 2], mesh.m_Tangents[j * 4 + 3]);
                     }
                     //BoneInfluence
-                    if (mesh.m_Skin.Length > 0)
+                    if (mesh.m_Skin?.Length > 0)
                     {
                         var inf = mesh.m_Skin[j];
                         iVertex.BoneIndices = new byte[inf.Count];
@@ -381,34 +381,23 @@ namespace AssetStudio
                 iMesh.SubmeshList.Add(iSubmesh);
             }
 
-            if (meshR is SkinnedMeshRenderer sMesh)
+            //Bone
+            iMesh.BoneList = new List<ImportedBone>();
+            if (mesh.m_BindPose?.Length > 0 && mesh.m_BoneNameHashes?.Length > 0 && mesh.m_BindPose.Length == mesh.m_BoneNameHashes.Length)
             {
-                //Bone
-                iMesh.BoneList = new List<ImportedBone>(sMesh.m_Bones.Length);
-                for (int i = 0; i < sMesh.m_Bones.Length; i++)
+                for (int i = 0; i < mesh.m_BindPose.Length; i++)
                 {
                     var bone = new ImportedBone();
-                    if (sMesh.m_Bones[i].TryGetTransform(out var m_Transform))
-                    {
-                        if (m_Transform.m_GameObject.TryGetGameObject(out var m_GameObject))
-                        {
-                            bone.Name = m_GameObject.m_Name;
-                        }
-                    }
-                    //No first use m_BoneNameHashes, because it may be wrong
+                    var boneHash = mesh.m_BoneNameHashes[i];
+                    bone.Name = GetNameFromBonePathHashes(boneHash);
                     if (string.IsNullOrEmpty(bone.Name))
                     {
-                        var boneHash = mesh.m_BoneNameHashes[i];
-                        bone.Name = GetNameFromBonePathHashes(boneHash);
-                        if (string.IsNullOrEmpty(bone.Name))
-                        {
-                            bone.Name = avatar?.FindBoneName(boneHash);
-                        }
-                        if (string.IsNullOrEmpty(bone.Name))
-                        {
-                            //throw new Exception("A Bone could neither be found by hash in Avatar nor by index in SkinnedMeshRenderer.");
-                            continue;
-                        }
+                        bone.Name = avatar?.FindBoneName(boneHash);
+                    }
+                    if (string.IsNullOrEmpty(bone.Name))
+                    {
+                        //throw new Exception("A Bone could neither be found by hash in Avatar nor by index in SkinnedMeshRenderer.");
+                        continue;
                     }
                     var om = new float[4, 4];
                     var m = mesh.m_BindPose[i];
@@ -431,24 +420,36 @@ namespace AssetStudio
                     bone.Matrix = om;
                     iMesh.BoneList.Add(bone);
                 }
+            }
 
-                //hierarchy has been optimized
-                if (sMesh.m_Bones.Length == 0 && mesh.m_BindPose?.Length > 0 && mesh.m_BoneNameHashes?.Length > 0)
+            if (meshR is SkinnedMeshRenderer sMesh)
+            {
+                //Bone for 4.3 down and other
+                if (iMesh.BoneList.Count == 0)
                 {
-                    //TODO Repeat code with above
-                    for (int i = 0; i < mesh.m_BindPose.Length; i++)
+                    for (int i = 0; i < sMesh.m_Bones.Length; i++)
                     {
                         var bone = new ImportedBone();
-                        var boneHash = mesh.m_BoneNameHashes[i];
-                        bone.Name = GetNameFromBonePathHashes(boneHash);
-                        if (string.IsNullOrEmpty(bone.Name))
+                        if (sMesh.m_Bones[i].TryGetTransform(out var m_Transform))
                         {
-                            bone.Name = avatar?.FindBoneName(boneHash);
+                            if (m_Transform.m_GameObject.TryGetGameObject(out var m_GameObject))
+                            {
+                                bone.Name = m_GameObject.m_Name;
+                            }
                         }
                         if (string.IsNullOrEmpty(bone.Name))
                         {
-                            //throw new Exception("A Bone could neither be found by hash in Avatar nor by index in SkinnedMeshRenderer.");
-                            continue;
+                            var boneHash = mesh.m_BoneNameHashes[i];
+                            bone.Name = GetNameFromBonePathHashes(boneHash);
+                            if (string.IsNullOrEmpty(bone.Name))
+                            {
+                                bone.Name = avatar?.FindBoneName(boneHash);
+                            }
+                            if (string.IsNullOrEmpty(bone.Name))
+                            {
+                                //throw new Exception("A Bone could neither be found by hash in Avatar nor by index in SkinnedMeshRenderer.");
+                                continue;
+                            }
                         }
                         var om = new float[4, 4];
                         var m = mesh.m_BindPose[i];
@@ -537,28 +538,24 @@ namespace AssetStudio
             if (combine)
             {
                 meshR.m_GameObject.TryGetGameObject(out var m_GameObject);
-                foreach (var root in FrameList)
+                var frame = ImportedHelpers.FindChild(m_GameObject.m_Name, FrameList[0]);
+                if (frame?.Parent != null)
                 {
-                    var frame = ImportedHelpers.FindFrame(m_GameObject.m_Name, root);
-                    if (frame?.Parent != null)
+                    var parent = frame;
+                    while (true)
                     {
-                        var parent = frame;
-                        while (true)
+                        if (parent.Parent != null)
                         {
-                            if (parent.Parent != null)
-                            {
-                                parent = parent.Parent;
-                            }
-                            else
-                            {
-                                frame.LocalRotation = parent.LocalRotation;
-                                frame.LocalScale = parent.LocalScale;
-                                frame.LocalPosition = parent.LocalPosition;
-                                break;
-                            }
+                            parent = parent.Parent;
+                        }
+                        else
+                        {
+                            frame.LocalRotation = parent.LocalRotation;
+                            frame.LocalScale = parent.LocalScale;
+                            frame.LocalPosition = parent.LocalPosition;
+                            break;
                         }
                     }
-                    break;
                 }
             }
 
@@ -569,7 +566,7 @@ namespace AssetStudio
         {
             if (meshR is SkinnedMeshRenderer sMesh)
             {
-                if (sMesh.m_Mesh.TryGetPD(out var MeshPD))
+                if (sMesh.m_Mesh.TryGet(out var MeshPD))
                 {
                     return new Mesh(MeshPD);
                 }
@@ -579,12 +576,12 @@ namespace AssetStudio
                 meshR.m_GameObject.TryGetGameObject(out var m_GameObject);
                 foreach (var m_Component in m_GameObject.m_Components)
                 {
-                    if (m_Component.TryGetPD(out var assetPreloadData))
+                    if (m_Component.TryGet(out var objectReader))
                     {
-                        if (assetPreloadData.Type == ClassIDReference.MeshFilter)
+                        if (objectReader.type == ClassIDType.MeshFilter)
                         {
-                            var m_MeshFilter = new MeshFilter(assetPreloadData);
-                            if (m_MeshFilter.m_Mesh.TryGetPD(out var MeshPD))
+                            var m_MeshFilter = new MeshFilter(objectReader);
+                            if (m_MeshFilter.m_Mesh.TryGet(out var MeshPD))
                             {
                                 return new Mesh(MeshPD);
                             }
@@ -596,11 +593,10 @@ namespace AssetStudio
             return null;
         }
 
-
-        private string GetTransformPath(Transform meshTransform)
+        private string GetMeshPath(Transform meshTransform)
         {
             meshTransform.m_GameObject.TryGetGameObject(out var m_GameObject);
-            var curFrame = ImportedHelpers.FindFrame(m_GameObject.m_Name, FrameList[0]);
+            var curFrame = ImportedHelpers.FindChild(m_GameObject.m_Name, FrameList[0]) ?? ImportedHelpers.FindFrame(m_GameObject.m_Name, FrameList[0]);
             var path = curFrame.Name;
             while (curFrame.Parent != null)
             {
@@ -609,6 +605,17 @@ namespace AssetStudio
             }
 
             return path;
+        }
+
+        private string GetTransformPath(Transform transform)
+        {
+            transform.m_GameObject.TryGetGameObject(out var m_GameObject);
+            if (transform.m_Father.TryGetTransform(out var father))
+            {
+                return GetTransformPath(father) + "/" + m_GameObject.m_Name;
+            }
+
+            return m_GameObject.m_Name;
         }
 
         private ImportedMaterial ConvertMaterial(Material mat)
@@ -667,7 +674,7 @@ namespace AssetStudio
                 foreach (var texEnv in mat.m_TexEnvs)
                 {
                     Texture2D tex2D = null;
-                    if (texEnv.m_Texture.TryGetPD(out var TexturePD) && TexturePD.Type == ClassIDReference.Texture2D)//TODO other Texture
+                    if (texEnv.m_Texture.TryGet(out var TexturePD) && TexturePD.type == ClassIDType.Texture2D)//TODO other Texture
                     {
                         tex2D = new Texture2D(TexturePD, true);
                     }
@@ -681,7 +688,7 @@ namespace AssetStudio
                     {
                         continue;
                     }
-                    iMat.Textures[dest] = TexturePD.Text + ".png";
+                    iMat.Textures[dest] = TexturePD.exportName + ".png";
                     iMat.TexOffsets[dest] = new Vector2(texEnv.m_Offset[0], texEnv.m_Offset[1]);
                     iMat.TexScales[dest] = new Vector2(texEnv.m_Scale[0], texEnv.m_Scale[1]);
                     ConvertTexture2D(tex2D, iMat.Textures[dest]);
@@ -826,7 +833,7 @@ namespace AssetStudio
                     var streamCount = m_Clip.m_StreamedClip.curveCount;
                     for (int frameIndex = 0; frameIndex < m_DenseClip.m_FrameCount; frameIndex++)
                     {
-                        var time = frameIndex / m_DenseClip.m_SampleRate;
+                        var time = m_DenseClip.m_BeginTime + frameIndex / m_DenseClip.m_SampleRate;
                         var frameOffset = frameIndex * m_DenseClip.m_CurveCount;
                         for (int curveIndex = 0; curveIndex < m_DenseClip.m_CurveCount;)
                         {
@@ -834,17 +841,20 @@ namespace AssetStudio
                             ReadCurveData(iAnim, m_ClipBindingConstant, (int)index, time, m_DenseClip.m_SampleArray, (int)frameOffset, ref curveIndex);
                         }
                     }
-                    var m_ConstantClip = m_Clip.m_ConstantClip;
-                    var denseCount = m_Clip.m_DenseClip.m_CurveCount;
-                    var time2 = 0.0f;
-                    for (int i = 0; i < 2; i++)
+                    if (m_Clip.m_ConstantClip != null)
                     {
-                        for (int curveIndex = 0; curveIndex < m_ConstantClip.data.Length;)
+                        var m_ConstantClip = m_Clip.m_ConstantClip;
+                        var denseCount = m_Clip.m_DenseClip.m_CurveCount;
+                        var time2 = 0.0f;
+                        for (int i = 0; i < 2; i++)
                         {
-                            var index = streamCount + denseCount + curveIndex;
-                            ReadCurveData(iAnim, m_ClipBindingConstant, (int)index, time2, m_ConstantClip.data, 0, ref curveIndex);
+                            for (int curveIndex = 0; curveIndex < m_ConstantClip.data.Length;)
+                            {
+                                var index = streamCount + denseCount + curveIndex;
+                                ReadCurveData(iAnim, m_ClipBindingConstant, (int)index, time2, m_ConstantClip.data, 0, ref curveIndex);
+                            }
+                            time2 = animationClip.m_MuscleClip.m_StopTime;
                         }
-                        time2 = animationClip.m_MuscleClip.m_StopTime;
                     }
                 }
             }
@@ -1021,7 +1031,7 @@ namespace AssetStudio
                 {
                     transformName = strs.Last();
                     var parentFrameName = strs[strs.Length - 2];
-                    parentFrame = ImportedHelpers.FindFrame(parentFrameName, rootFrame);
+                    parentFrame = ImportedHelpers.FindChild(parentFrameName, rootFrame);
                 }
 
                 var skeletonPose = avatar.m_Avatar.m_DefaultPose;
@@ -1039,6 +1049,48 @@ namespace AssetStudio
                 var frame = ConvertFrame(t, xform.q, s, transformName);
                 parentFrame.AddChild(frame);
             }
+        }
+
+        private static float[] QuatToEuler(float[] q)
+        {
+            double eax = 0;
+            double eay = 0;
+            double eaz = 0;
+
+            float qx = q[0];
+            float qy = q[1];
+            float qz = q[2];
+            float qw = q[3];
+
+            double[,] M = new double[4, 4];
+
+            double Nq = qx * qx + qy * qy + qz * qz + qw * qw;
+            double s = (Nq > 0.0) ? (2.0 / Nq) : 0.0;
+            double xs = qx * s, ys = qy * s, zs = qz * s;
+            double wx = qw * xs, wy = qw * ys, wz = qw * zs;
+            double xx = qx * xs, xy = qx * ys, xz = qx * zs;
+            double yy = qy * ys, yz = qy * zs, zz = qz * zs;
+
+            M[0, 0] = 1.0 - (yy + zz); M[0, 1] = xy - wz; M[0, 2] = xz + wy;
+            M[1, 0] = xy + wz; M[1, 1] = 1.0 - (xx + zz); M[1, 2] = yz - wx;
+            M[2, 0] = xz - wy; M[2, 1] = yz + wx; M[2, 2] = 1.0 - (xx + yy);
+            M[3, 0] = M[3, 1] = M[3, 2] = M[0, 3] = M[1, 3] = M[2, 3] = 0.0; M[3, 3] = 1.0;
+
+            double test = Math.Sqrt(M[0, 0] * M[0, 0] + M[1, 0] * M[1, 0]);
+            if (test > 16 * 1.19209290E-07F)//FLT_EPSILON
+            {
+                eax = Math.Atan2(M[2, 1], M[2, 2]);
+                eay = Math.Atan2(-M[2, 0], test);
+                eaz = Math.Atan2(M[1, 0], M[0, 0]);
+            }
+            else
+            {
+                eax = Math.Atan2(-M[1, 2], M[1, 1]);
+                eay = Math.Atan2(-M[2, 0], test);
+                eaz = 0;
+            }
+
+            return new[] { (float)(eax * 180 / Math.PI), (float)(eay * 180 / Math.PI), (float)(eaz * 180 / Math.PI) };
         }
     }
 }
